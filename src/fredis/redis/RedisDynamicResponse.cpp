@@ -72,10 +72,10 @@ RedisDynamicResponse::try_array_t RedisDynamicResponse::getArray() {
   }
   folly::fbvector<RedisDynamicResponse> responses;
   responses.reserve(hiredisReply_->elements);
-  auto currentElem = (redisReply*) hiredisReply_->element;
+  auto currentElem = (redisReply**) hiredisReply_->element;
   for (size_t i = 0; i < hiredisReply_->elements; i++) {
-    responses.push_back(RedisDynamicResponse(currentElem));
-    ++currentElem;
+    responses.push_back(RedisDynamicResponse(*currentElem));
+    currentElem++;
   }
   return try_array_t {std::move(responses)};
 }
@@ -99,6 +99,8 @@ void RedisDynamicResponse::pprintTo(std::ostream &oss) {
       oss << ",";
     }
     oss << "\n]}";
+  } else {
+    oss << "{ UKNOWN_TYPE [" << hiredisReply_->type << "] }";
   }
 }
 
@@ -155,7 +157,7 @@ static const response_type_map typeNames {
   {ResponseType::STATUS, "STATUS"},
   {ResponseType::ERROR, "ERROR"},
   {ResponseType::INTEGER, "INTEGER"},
-  {ResponseType::INTEGER, "NIL"}
+  {ResponseType::NIL, "NIL"}
 };
 
 const char* stringOfResponseType(ResponseType resType) {

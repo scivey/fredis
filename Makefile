@@ -4,10 +4,19 @@ deps:
 clean:
 	rm -rf build
 
-create-runner: deps
-	mkdir -p build && cd build && cmake ../ && make runner -j8
+base: deps
+	mkdir -p build && cd build && cmake ../
+
+create-runner: base
+	cd build && make runner -j8
 
 run: create-runner
 	./build/runner
+
+create-integration: base
+	cd build && make integration_runner -j8
+
+integration: create-integration
+	./build/integration_runner
 
 .PHONY: run create-runner

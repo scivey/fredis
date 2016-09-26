@@ -34,6 +34,15 @@ class EBThreadBase {
   bool isRunning(std::memory_order memOrder = std::memory_order_seq_cst) const {
     return running_.load(memOrder);
   }
+  void ensureStarted() {
+    if (!isRunning()) {
+      try {
+        start();
+      } catch (const AlreadyStarted &ex) {
+        LOG(INFO) << "ignoring AlreadyStarted exception on ensureRunning() : " << ex.what();
+      }
+    }
+  }
   void start() {
     if (isRunning()) {
       FREDIS_THROW0(AlreadyStarted);

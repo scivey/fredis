@@ -15,6 +15,46 @@ using std::shared_ptr;
 using std::thread;
 using FBat = folly::Baton<std::atomic>;
 
+// int main() {
+//   google::InstallFailureSignalHandler();
+//   LOG(INFO) << "start";
+//   auto ebt = EBThread::createShared();
+//   ebt->start();
+//   FBat baton;
+//   std::shared_ptr<RedisClient> savedRef {nullptr};
+//   ebt->runInEventBaseThread(
+//     [ebt, &baton, &savedRef]
+//     () {
+//       auto clientPtr = RedisClient::createShared(ebt->getBase(), "127.0.0.1", 6379);
+//       savedRef = clientPtr;
+//       clientPtr->connect()
+//         .then(
+//           [&baton, clientPtr]
+//           (folly::Try<shared_ptr<RedisClient>> clientOpt) {
+//             LOG(INFO) << "connected... has val? : " << clientOpt.hasValue();
+//             shared_ptr<RedisClient> client = clientOpt.value();
+//             client->set("foo", "123456789")
+//               .then([&baton, clientPtr](folly::Try<RedisDynamicResponse> response) {
+//                 LOG(INFO) << "finished setting.";
+//                 LOG(INFO) << "result : ...";
+//                 if (!response.hasValue()) {
+//                   LOG (INFO) << "exception! : " << response.exception().what();
+//                 } else {
+//                   LOG(INFO) << response.value().pprint();
+//                 }
+//                 baton.post();
+//               });
+//           }
+//         );
+//     }
+//   );
+//   baton.wait();
+//   ebt->stop();
+//   ebt->join();
+//   LOG(INFO) << "end";
+// }
+
+
 int main() {
   google::InstallFailureSignalHandler();
   LOG(INFO) << "start";
@@ -53,4 +93,3 @@ int main() {
   ebt->join();
   LOG(INFO) << "end";
 }
-

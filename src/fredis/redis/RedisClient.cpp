@@ -9,12 +9,18 @@
 #include "fredis/redis/hiredis_adapter/hiredis_adapter.h"
 
 using namespace std;
+using folly::fbstring;
 
 namespace fredis { namespace redis {
 
 using connect_future_t = typename RedisClient::connect_future_t;
+using arg_str_ref = typename RedisClient::arg_str_ref;
+using cmd_str_ref = typename RedisClient::cmd_str_ref;
+using redis_signed_t = typename RedisClient::redis_signed_t;
+using arg_str_list = typename RedisClient::arg_str_list;
+using mset_init_list = typename RedisClient::mset_init_list;
 
-RedisClient::RedisClient(folly::EventBase *base, const string &host, int port)
+RedisClient::RedisClient(folly::EventBase *base, const fbstring &host, int port)
   : base_(base), host_(host), port_(port) {}
 
 
@@ -39,7 +45,7 @@ RedisClient& RedisClient::operator=(RedisClient &&other) {
 }
 
 std::shared_ptr<RedisClient> RedisClient::createShared(folly::EventBase *base,
-      const string &host, int port) {
+      const fbstring &host, int port) {
   return std::make_shared<RedisClient>(RedisClient(base, host, port));
 }
 
@@ -68,42 +74,141 @@ RedisClient::disconnect_future_t RedisClient::disconnect() {
   return disconnectPromise_.getFuture();
 }
 
-RedisClient::response_future_t RedisClient::get(string key) {
+RedisClient::response_future_t RedisClient::command0(cmd_str_ref cmd) {
   auto reqCtx = new RedisRequestContext {shared_from_this()};
   redisAsyncCommand(redisContext_,
     &RedisClient::hiredisCommandCallback,
     (void*) reqCtx,
-    "GET %s", key.c_str()
+    cmd.c_str()
   );
   return reqCtx->getFuture();
 }
 
-RedisClient::response_future_t RedisClient::set(string key, string val) {
+RedisClient::response_future_t RedisClient::command1(cmd_str_ref cmd,
+    arg_str_ref arg) {
   auto reqCtx = new RedisRequestContext {shared_from_this()};
   redisAsyncCommand(redisContext_,
     &RedisClient::hiredisCommandCallback,
     (void*) reqCtx,
-    "SET %s %s", key.c_str(), val.c_str()
+    cmd.c_str(), arg.c_str()
+  );
+  return reqCtx->getFuture();
+}
+
+RedisClient::response_future_t RedisClient::command2(cmd_str_ref cmd,
+    arg_str_ref arg1, arg_str_ref arg2) {
+  auto reqCtx = new RedisRequestContext {shared_from_this()};
+  redisAsyncCommand(redisContext_,
+    &RedisClient::hiredisCommandCallback,
+    (void*) reqCtx,
+    cmd.c_str(), arg1.c_str(), arg2.c_str()
+  );
+  return reqCtx->getFuture();
+}
+
+RedisClient::response_future_t RedisClient::command2(cmd_str_ref cmd,
+    arg_str_ref arg1, redis_signed_t arg2) {
+  auto reqCtx = new RedisRequestContext {shared_from_this()};
+  redisAsyncCommand(redisContext_,
+    &RedisClient::hiredisCommandCallback,
+    (void*) reqCtx,
+    cmd.c_str(), arg1.c_str(), arg2
   );
   return reqCtx->getFuture();
 }
 
 
+RedisClient::response_future_t RedisClient::get(arg_str_ref key) {
+  return command1("GET %s", key);
+}
+
+RedisClient::response_future_t RedisClient::del(arg_str_ref key) {
+  return command1("DEL %s", key);
+}
+
+RedisClient::response_future_t RedisClient::exists(arg_str_ref key) {
+  return command1("EXISTS %s", key);
+}
+
+RedisClient::response_future_t RedisClient::expire(arg_str_ref key,
+    redis_signed_t ttlSecs) {
+  return command2("EXPIRE %s %i", key, ttlSecs);
+}
+
+RedisClient::response_future_t RedisClient::set(arg_str_ref key, arg_str_ref val) {
+  return command2("SET %s %s", key, val);
+}
+
+RedisClient::response_future_t RedisClient::set(arg_str_ref key, redis_signed_t val) {
+  return command2("SET %s %i", key, val);
+}
+
+RedisClient::response_future_t RedisClient::mset(mset_init_list&& msetList) {
+  folly::fbvector<std::pair<arg_str_t, arg_str_t>> toMset{
+    std::forward<mset_init_list>(msetList)
+  };
+  return mset(toMset);
+}
+
+RedisClient::response_future_t RedisClient::mget(mget_init_list&& mgetList) {
+  folly::fbvector<arg_str_t> toMget{
+    std::forward<mget_init_list>(mgetList)
+  };
+  return mget(toMget);
+}
+
+RedisClient::response_future_t RedisClient::setnx(arg_str_ref key,
+    arg_str_ref val) {
+  return command2("SETNX %s %s", key, val);
+}
+
+RedisClient::response_future_t RedisClient::setnx(arg_str_ref key,
+    redis_signed_t val) {
+  return command2("SETNX %s %i", key, val);
+}
+
+RedisClient::response_future_t RedisClient::getset(arg_str_ref key,
+    arg_str_ref val) {
+  return command2("GETSET %s %s", key, val);
+}
+
+RedisClient::response_future_t RedisClient::incr(arg_str_ref key) {
+  return command1("INCR %s", key);
+}
+
+RedisClient::response_future_t RedisClient::incrby(arg_str_ref key,
+    redis_signed_t amount) {
+  return command2("INCRBY %s %i", key, amount);
+}
+
+RedisClient::response_future_t RedisClient::decr(arg_str_ref key) {
+  return command1("DECR %s", key);
+}
+
+RedisClient::response_future_t RedisClient::decrby(arg_str_ref key,
+    redis_signed_t amount) {
+  return command2("DECRBY %s %i", key, amount);
+}
+
+RedisClient::response_future_t RedisClient::llen(arg_str_ref key) {
+  return command1("LLEN %s", key);
+}
+
+RedisClient::response_future_t RedisClient::strlen(arg_str_ref key) {
+  return command1("STRLEN %s", key);
+}
 
 void RedisClient::hiredisConnectCallback(const redisAsyncContext *ac, int status) {
-  LOG(INFO) << "hiredisConnectCallback";
   auto clientPtr = detail::getClientFromContext(ac);
   clientPtr->handleConnected(status);
 }
 
 void RedisClient::hiredisDisconnectCallback(const redisAsyncContext *ac, int status) {
-  LOG(INFO) << "hiredisDisconnectCallback";
   auto clientPtr = detail::getClientFromContext(ac);
   clientPtr->handleDisconnected(status);
 }
 
 void RedisClient::hiredisCommandCallback(redisAsyncContext *ac, void *reply, void *pdata) {
-  LOG(INFO) << "RedisClient::hiredisCommandCallback";
   auto clientPtr = detail::getClientFromContext(ac);
   auto reqCtx = (RedisRequestContext*) pdata;
   auto bareReply = (redisReply*) reply;

@@ -30,8 +30,6 @@ set(COMMON_LIBS
 
 set(SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src)
 FILE(GLOB FREDIS_CORE_SRC
-    ${SRC_ROOT}/fredis/*.cpp
-    ${SRC_ROOT}/fredis/**/*.cpp
     ${SRC_ROOT}/fredis/redis/**/*.cpp
     ${SRC_ROOT}/fredis/redis/*.cpp
 )
@@ -47,3 +45,19 @@ add_executable(runner
 
 add_dependencies(runner fredis)
 target_link_libraries(runner fredis ${COMMON_LIBS})
+
+
+FILE(GLOB INTEGRATION_SRC
+    ${SRC_ROOT}/fredis/integration_tests/*.cpp
+)
+add_executable(integration_runner
+    ${INTEGRATION_SRC}
+    ${SRC_ROOT}/run_tests.cpp
+)
+add_dependencies(integration_runner fredis)
+
+target_link_libraries(integration_runner
+    fredis
+    gmock
+    ${COMMON_LIBS}
+)
