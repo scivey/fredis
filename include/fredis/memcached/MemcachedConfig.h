@@ -39,7 +39,6 @@ class MemcachedConfig {
 
 namespace detail {
 folly::Try<folly::fbstring> validateMemcachedConfigStr(const folly::fbstring&);
-void validateMemcachedConfigStrExcept(const folly::fbstring&);
 }
 
 }} // fredis::memcached

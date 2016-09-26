@@ -102,7 +102,6 @@ TEST(TestRedisIntegration, TestSmoke1) {
       .then([clientPtr, &ctx, &someTag](try_response_t responseOpt) {
         EXPECT_TRUE(responseOpt.hasValue());
         auto response = responseOpt.value();
-        LOG(INFO) << response.pprint();
         EXPECT_TRUE(response.isType(RedisDynamicResponse::ResponseType::STRING));
         auto asString = response.getString();
         EXPECT_TRUE(asString.hasValue());
@@ -220,7 +219,6 @@ TEST(TestRedisIntegration, TestMSet2) {
       })
       .onError([&exn, &ctx, &someTag](std::exception &ex) {
         someTag.store(2118);
-        LOG(INFO) << "ERROR: " << ex.what();
         exn.assign(ex);
         ctx.post();
       });

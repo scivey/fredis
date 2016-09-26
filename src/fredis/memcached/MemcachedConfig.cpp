@@ -39,11 +39,6 @@ Try<fbstring> MemcachedConfig::toConfigString() {
   auto err = detail::validateMemcachedConfigStr(confStr);
   if (err.hasException()) {
     return err;
-    // return Try<fbstring>{
-    //   make_exception_wrapper<MemcachedError>(
-    //     std::move(err)
-    //   )
-    // };
   }
   return Try<fbstring>{confStr};
 }
@@ -66,11 +61,6 @@ Try<fbstring> validateMemcachedConfigStr(const fbstring& configStr) {
     };
   }
   return Try<fbstring>{fbstring{configStr}};
-}
-
-void validateMemcachedConfigStrExcept(const fbstring& configStr) {
-  auto result = validateMemcachedConfigStr(configStr);
-  result.throwIfFailed();
 }
 
 } // detail
