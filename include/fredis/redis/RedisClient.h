@@ -8,11 +8,11 @@
 #include <folly/futures/Future.h>
 #include <folly/futures/Unit.h>
 #include <folly/futures/Try.h>
-#include "fredis/RedisRequestContext.h"
+#include "fredis/redis/RedisRequestContext.h"
 
 struct redisAsyncContext;
 
-namespace fredis {
+namespace fredis { namespace redis {
 
 class RedisClient: public std::enable_shared_from_this<RedisClient> {
  public:
@@ -55,6 +55,7 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   response_future_t get(std::string key);
   response_future_t set(std::string key, std::string val);
  public:
+
   // these are public because hiredis needs access to them.
   // they aren't really "public" public
   static void hiredisConnectCallback(const redisAsyncContext*, int status);
@@ -63,6 +64,6 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
 
 };
 
-} // fredis
+}} // fredis::redis
 
 

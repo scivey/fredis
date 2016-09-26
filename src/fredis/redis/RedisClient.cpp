@@ -1,16 +1,16 @@
-#include "fredis/RedisClient.h"
+#include "fredis/redis/RedisClient.h"
 #include <hiredis/hiredis.h>
 #include <hiredis/async.h>
 #include <hiredis/adapters/libevent.h>
 #include <glog/logging.h>
 #include <folly/ExceptionWrapper.h>
-#include "fredis/RedisError.h"
-#include "fredis/RedisRequestContext.h"
+#include "fredis/redis/RedisError.h"
+#include "fredis/redis/RedisRequestContext.h"
 #include "fredis/folly_util/folly_util.h"
 
 using namespace std;
 
-namespace fredis {
+namespace fredis { namespace redis {
 
 using connect_future_t = typename RedisClient::connect_future_t;
 
@@ -92,5 +92,5 @@ void RedisClient::hiredisCommandCallback(redisAsyncContext *ac, void *ctx, void 
 }
 
 
-} // fredis
+}} // fredis::redis
 

@@ -7,10 +7,10 @@
 #include <glog/logging.h>
 
 #include "fredis/folly_util/EBThread.h"
-#include "fredis/RedisClient.h"
+#include "fredis/redis/RedisClient.h"
 
 using fredis::folly_util::EBThread;
-using namespace fredis;
+using namespace fredis::redis;
 using std::shared_ptr;
 using std::thread;
 using FBat = folly::Baton<std::atomic>;

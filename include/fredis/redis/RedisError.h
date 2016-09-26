@@ -4,7 +4,7 @@
 #include "fredis/FredisError.h"
 #include "fredis/macros.h"
 
-namespace fredis {
+namespace fredis { namespace redis {
 
 #define X FREDIS_DECLARE_EXCEPTION
 
@@ -16,4 +16,4 @@ X(RedisEOFError, RedisError);
 #undef X
 
 
-} // fredis
+}} // fredis::redis

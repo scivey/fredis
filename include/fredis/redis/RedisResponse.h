@@ -2,11 +2,11 @@
 
 #include <string>
 
-namespace fredis {
+namespace fredis { namespace redis {
 
 class RedisResponse {
  public:
   RedisResponse();
 };
 
-} // fredis
+}} // fredis::redis

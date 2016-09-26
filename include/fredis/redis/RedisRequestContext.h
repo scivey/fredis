@@ -3,9 +3,9 @@
 #include <folly/futures/Future.h>
 #include <folly/futures/Promise.h>
 #include <memory>
-#include "fredis/RedisResponse.h"
+#include "fredis/redis/RedisResponse.h"
 
-namespace fredis {
+namespace fredis { namespace redis {
 
 class RedisClient;
 
@@ -35,4 +35,4 @@ class RedisRequestContext {
 
 };
 
-} // fredis
+}} // fredis::redis
