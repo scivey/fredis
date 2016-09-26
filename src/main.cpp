@@ -33,14 +33,13 @@ int main() {
   MemcachedSyncClient client(std::move(config));
   client.connectExcept();
   CHECK(client.isConnected());
-  auto result = client.get("foo");
-  result.throwIfFailed();
-  auto keyVal = result.value();
-  if (!keyVal.hasValue()) {
-    LOG(INFO) << "key was empty!";
-  } else {
-    fbstring kv = keyVal.value();
-    LOG(INFO) << "result: '" << kv << "'";
-  }
+  auto getResult = client.get("foo");
+  getResult.throwIfFailed();
+  LOG(INFO) << "kv : '" << getResult.value().value() << "'";
+  auto setRes = client.set("foo", "SOMETHING ELSE!");
+  setRes.throwIfFailed();
+  getResult = client.get("foo");
+  getResult.throwIfFailed();
+  LOG(INFO) << "kv2: '" << getResult.value().value() << "'";
   LOG(INFO) << "end";
 }

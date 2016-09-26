@@ -125,4 +125,25 @@ get_result_t MemcachedSyncClient::get(const fbstring &key) {
   return result;
 }
 
+using set_result_t = MemcachedSyncClient::set_result_t;
+
+set_result_t MemcachedSyncClient::set(const fbstring& key,
+    const fbstring& val, time_t ttl) {
+  DCHECK(isConnected());
+  uint32_t flags {0};
+  auto rc = memcached_set(mcHandle_,
+    key.c_str(), key.size(),
+    val.c_str(), val.size(),
+    ttl, flags
+  );
+  if (rc != MEMCACHED_SUCCESS) {
+    return set_result_t {
+      make_exception_wrapper<ProtocolError>(
+        memcached_last_error_message(mcHandle_)
+      )
+    };
+  }
+  return set_result_t{Unit{}};
+}
+
 }} // fredis::memcached

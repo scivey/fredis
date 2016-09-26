@@ -33,6 +33,8 @@ class MemcachedSyncClient {
   using get_result_t = folly::Try<folly::Optional<folly::fbstring>>;
   get_result_t get(const folly::fbstring &key);
 
+  using set_result_t = folly::Try<folly::Unit>;
+  set_result_t set(const folly::fbstring &key, const folly::fbstring &val, time_t ttl = 0);
 };
 
 }} // fredis::memcached
