@@ -30,7 +30,10 @@ set(COMMON_LIBS
 
 set(SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src)
 FILE(GLOB FREDIS_CORE_SRC
-    ${SRC_ROOT}/fredis/*.cpp ${SRC_ROOT}/fredis/**/*.cpp
+    ${SRC_ROOT}/fredis/*.cpp
+    ${SRC_ROOT}/fredis/**/*.cpp
+    ${SRC_ROOT}/fredis/redis/**/*.cpp
+    ${SRC_ROOT}/fredis/redis/*.cpp
 )
 
 add_library(fredis

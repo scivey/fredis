@@ -1,12 +1,12 @@
 #include "fredis/redis/RedisClient.h"
 #include <hiredis/hiredis.h>
 #include <hiredis/async.h>
-#include <hiredis/adapters/libevent.h>
 #include <glog/logging.h>
 #include <folly/ExceptionWrapper.h>
 #include "fredis/redis/RedisError.h"
 #include "fredis/redis/RedisRequestContext.h"
 #include "fredis/folly_util/folly_util.h"
+#include "fredis/redis/hiredis_adapter/hiredis_adapter.h"
 
 using namespace std;
 
@@ -19,9 +19,7 @@ RedisClient::RedisClient(folly::EventBase *base, const string &host, int port)
 
 RedisClient::connect_future_t RedisClient::connect(
     folly::EventBase *base, string host, int port) {
-  auto result = std::shared_ptr<RedisClient> {
-    new RedisClient {base, host, port}
-  };
+  auto result = std::make_shared<RedisClient>(base, host, port);
   result->redisContext_ = redisAsyncConnect(result->host_.c_str(), result->port_);
   if (result->redisContext_->err) {
     folly::Try<shared_ptr<RedisClient>> errResult {
@@ -29,7 +27,9 @@ RedisClient::connect_future_t RedisClient::connect(
     };
     return folly::makeFuture(errResult);
   }
-  redisLibeventAttach(result->redisContext_, base->getLibeventBase());
+  hiredis_adapter::fredisLibeventAttach(
+    result.get(), result->redisContext_, base->getLibeventBase()
+  );
   redisAsyncSetConnectCallback(result->redisContext_,
     &RedisClient::hiredisConnectCallback);
   redisAsyncSetDisconnectCallback(result->redisContext_,
@@ -38,24 +38,11 @@ RedisClient::connect_future_t RedisClient::connect(
   return result->connectPromise_.getFuture();
 }
 
-// RedisClient::connect_future_t RedisClient::connect(
-//   folly::EventBase *base, string host, int port) {
-//   return folly_util::runInEventLoop<connect_future_t>(base, [base, host, port]() {
-//     return connectInternal(base, host, port);
-//   });
-// }
-
 RedisClient::disconnect_future_t RedisClient::disconnect() {
   CHECK(!!redisContext_);
   redisAsyncDisconnect(redisContext_);
   return disconnectPromise_.getFuture();
 }
-
-// RedisClient::disconnect_future_t RedisClient::disconnect() {
-//   return folly_util::runInEventLoop<connect_future_t>(base_, [this]() {
-//     return disconnectInternal();
-//   });
-// }
 
 RedisClient::response_future_t RedisClient::get(string key) {
   auto reqCtx = new RedisRequestContext {shared_from_this()};
@@ -77,20 +64,48 @@ RedisClient::response_future_t RedisClient::set(string key, string val) {
   return reqCtx->getFuture();
 }
 
+
+
 void RedisClient::hiredisConnectCallback(const redisAsyncContext *ac, int status) {
   LOG(INFO) << "hiredisConnectCallback";
+  auto clientPtr = detail::getClientFromContext(ac);
+  clientPtr->handleConnected(status);
 }
 
 void RedisClient::hiredisDisconnectCallback(const redisAsyncContext *ac, int status) {
   LOG(INFO) << "hiredisDisconnectCallback";
+  auto clientPtr = detail::getClientFromContext(ac);
+  clientPtr->handleDisconnected(status);
 }
 
 void RedisClient::hiredisCommandCallback(redisAsyncContext *ac, void *ctx, void *data) {
   LOG(INFO) << "RedisClient::hiredisCommandCallback";
+  auto clientPtr = detail::getClientFromContext(ac);
   auto reqCtx = (RedisRequestContext*) ctx;
-  reqCtx->setValue(RedisResponse{});
+  clientPtr->handleCommand(reqCtx, data);
 }
 
+void RedisClient::handleConnected(int status) {
+  CHECK(status == REDIS_OK);
+  auto selfPtr = shared_from_this();
+  connectPromise_.setValue(folly::Try<decltype(selfPtr)> {selfPtr});
+}
+
+void RedisClient::handleCommand(RedisRequestContext *ctx, void *data) {
+  ctx->setValue(RedisResponse{});
+}
+
+void RedisClient::handleDisconnected(int status) {
+  CHECK(status == REDIS_OK);
+  disconnectPromise_.setValue(folly::Try<folly::Unit> {folly::Unit {}});
+}
+
+namespace detail {
+RedisClient* getClientFromContext(const redisAsyncContext *ctx) {
+  auto evData = (hiredis_adapter::fredisLibeventEvents*) ctx->ev.data;
+  return evData->client;
+}
+}
 
 }} // fredis::redis
 

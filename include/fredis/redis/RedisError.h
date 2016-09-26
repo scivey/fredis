@@ -16,4 +16,5 @@ X(RedisEOFError, RedisError);
 #undef X
 
 
+
 }} // fredis::redis

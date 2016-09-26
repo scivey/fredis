@@ -39,23 +39,26 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   connect_promise_t connectPromise_;
   disconnect_promise_t disconnectPromise_;
 
+ public:
+
+  // not really for public use.
   RedisClient(folly::EventBase *base,
     const std::string& host, int port);
 
-  // static connect_future_t connectInternal(
-  //   folly::EventBase *evBase, std::string host, int port
-  // );
-  // disconnect_future_t disconnectInternal();
-
- public:
   static connect_future_t connect(
     folly::EventBase *evBase, std::string host, int port
   );
   disconnect_future_t disconnect();
   response_future_t get(std::string key);
   response_future_t set(std::string key, std::string val);
- public:
 
+ protected:
+  // event handler methods called from the static handlers (because C)
+  void handleConnected(int status);
+  void handleCommand(RedisRequestContext *ctx, void *data);
+  void handleDisconnected(int status);
+
+ public:
   // these are public because hiredis needs access to them.
   // they aren't really "public" public
   static void hiredisConnectCallback(const redisAsyncContext*, int status);
@@ -63,6 +66,11 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   static void hiredisDisconnectCallback(const redisAsyncContext*, int status);
 
 };
+
+namespace detail {
+RedisClient* getClientFromContext(const redisAsyncContext* ctx);
+}
+
 
 }} // fredis::redis
 
