@@ -25,16 +25,23 @@ int main() {
   ebt->runInEventBaseThread(
     [ebt, &baton, &savedRef]
     () {
-      RedisClient::connect(ebt->getBase(), "127.0.0.1", 6379)
+      auto clientPtr = RedisClient::createShared(ebt->getBase(), "127.0.0.1", 6379);
+      savedRef = clientPtr;
+      clientPtr->connect()
         .then(
-          [&baton, &savedRef]
+          [&baton, clientPtr]
           (folly::Try<shared_ptr<RedisClient>> clientOpt) {
             LOG(INFO) << "connected... has val? : " << clientOpt.hasValue();
             shared_ptr<RedisClient> client = clientOpt.value();
-            savedRef = client;
             client->set("foo", "123456789")
-              .then([&baton](folly::Try<RedisResponse> response) {
+              .then([&baton, clientPtr](folly::Try<RedisDynamicResponse> response) {
                 LOG(INFO) << "finished setting.";
+                LOG(INFO) << "result : ...";
+                if (!response.hasValue()) {
+                  LOG (INFO) << "exception! : " << response.exception().what();
+                } else {
+                  LOG(INFO) << response.value().pprint();
+                }
                 baton.post();
               });
           }

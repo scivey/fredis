@@ -28,9 +28,9 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   using disconnect_future_t = decltype(
     std::declval<disconnect_promise_t>().getFuture()
   );
+  using response_t = typename RedisRequestContext::response_t;
   using response_future_t =
     typename RedisRequestContext::response_future_t;
-
  protected:
   folly::EventBase *base_ {nullptr};
   std::string host_;
@@ -39,15 +39,21 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   connect_promise_t connectPromise_;
   disconnect_promise_t disconnectPromise_;
 
- public:
-
   // not really for public use.
   RedisClient(folly::EventBase *base,
     const std::string& host, int port);
 
-  static connect_future_t connect(
-    folly::EventBase *evBase, std::string host, int port
-  );
+  RedisClient(const RedisClient &other) = delete;
+  RedisClient& operator=(const RedisClient &other) = delete;
+ public:
+
+  RedisClient(RedisClient &&other);
+  RedisClient& operator=(RedisClient &&other);
+
+  static std::shared_ptr<RedisClient> createShared(folly::EventBase *base,
+    const std::string &host, int port);
+
+  connect_future_t connect();
   disconnect_future_t disconnect();
   response_future_t get(std::string key);
   response_future_t set(std::string key, std::string val);
@@ -55,16 +61,16 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
  protected:
   // event handler methods called from the static handlers (because C)
   void handleConnected(int status);
-  void handleCommand(RedisRequestContext *ctx, void *data);
+  void handleCommandResponse(RedisRequestContext *ctx, response_t&& data);
   void handleDisconnected(int status);
 
  public:
   // these are public because hiredis needs access to them.
   // they aren't really "public" public
   static void hiredisConnectCallback(const redisAsyncContext*, int status);
-  static void hiredisCommandCallback(redisAsyncContext*, void *ctx, void *pdata);
+  static void hiredisCommandCallback(redisAsyncContext*, void *reply, void *pdata);
   static void hiredisDisconnectCallback(const redisAsyncContext*, int status);
-
+  ~RedisClient();
 };
 
 namespace detail {

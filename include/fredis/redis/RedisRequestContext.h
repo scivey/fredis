@@ -3,7 +3,7 @@
 #include <folly/futures/Future.h>
 #include <folly/futures/Promise.h>
 #include <memory>
-#include "fredis/redis/RedisResponse.h"
+#include "fredis/redis/RedisDynamicResponse.h"
 
 namespace fredis { namespace redis {
 
@@ -11,7 +11,7 @@ class RedisClient;
 
 class RedisRequestContext {
  public:
-  using response_t = RedisResponse;
+  using response_t = RedisDynamicResponse;
   using response_promise_t = folly::Promise<response_t>;
   using response_future_t = decltype(
     std::declval<response_promise_t>().getFuture()

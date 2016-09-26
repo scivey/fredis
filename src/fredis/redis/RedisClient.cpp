@@ -17,25 +17,49 @@ using connect_future_t = typename RedisClient::connect_future_t;
 RedisClient::RedisClient(folly::EventBase *base, const string &host, int port)
   : base_(base), host_(host), port_(port) {}
 
-RedisClient::connect_future_t RedisClient::connect(
-    folly::EventBase *base, string host, int port) {
-  auto result = std::make_shared<RedisClient>(base, host, port);
-  result->redisContext_ = redisAsyncConnect(result->host_.c_str(), result->port_);
-  if (result->redisContext_->err) {
+
+RedisClient::RedisClient(RedisClient &&other)
+  : base_(other.base_),
+    host_(other.host_),
+    port_(other.port_),
+    redisContext_(other.redisContext_),
+    connectPromise_(std::move(other.connectPromise_)),
+    disconnectPromise_(std::move(other.disconnectPromise_)) {
+  other.redisContext_ = nullptr;
+}
+
+RedisClient& RedisClient::operator=(RedisClient &&other) {
+  std::swap(base_, other.base_);
+  std::swap(host_, other.host_);
+  std::swap(port_, other.port_);
+  std::swap(redisContext_, other.redisContext_);
+  std::swap(connectPromise_, other.connectPromise_);
+  std::swap(disconnectPromise_, other.disconnectPromise_);
+  return *this;
+}
+
+std::shared_ptr<RedisClient> RedisClient::createShared(folly::EventBase *base,
+      const string &host, int port) {
+  return std::make_shared<RedisClient>(RedisClient(base, host, port));
+}
+
+RedisClient::connect_future_t RedisClient::connect() {
+  CHECK(!redisContext_);
+  redisContext_ = redisAsyncConnect(host_.c_str(), port_);
+  if (redisContext_->err) {
     folly::Try<shared_ptr<RedisClient>> errResult {
-      folly::make_exception_wrapper<RedisIOError>(result->redisContext_->errstr)
+      folly::make_exception_wrapper<RedisIOError>(redisContext_->errstr)
     };
     return folly::makeFuture(errResult);
   }
   hiredis_adapter::fredisLibeventAttach(
-    result.get(), result->redisContext_, base->getLibeventBase()
+    this, redisContext_, base_->getLibeventBase()
   );
-  redisAsyncSetConnectCallback(result->redisContext_,
+  redisAsyncSetConnectCallback(redisContext_,
     &RedisClient::hiredisConnectCallback);
-  redisAsyncSetDisconnectCallback(result->redisContext_,
+  redisAsyncSetDisconnectCallback(redisContext_,
     &RedisClient::hiredisDisconnectCallback);
-
-  return result->connectPromise_.getFuture();
+  return connectPromise_.getFuture();
 }
 
 RedisClient::disconnect_future_t RedisClient::disconnect() {
@@ -78,11 +102,12 @@ void RedisClient::hiredisDisconnectCallback(const redisAsyncContext *ac, int sta
   clientPtr->handleDisconnected(status);
 }
 
-void RedisClient::hiredisCommandCallback(redisAsyncContext *ac, void *ctx, void *data) {
+void RedisClient::hiredisCommandCallback(redisAsyncContext *ac, void *reply, void *pdata) {
   LOG(INFO) << "RedisClient::hiredisCommandCallback";
   auto clientPtr = detail::getClientFromContext(ac);
-  auto reqCtx = (RedisRequestContext*) ctx;
-  clientPtr->handleCommand(reqCtx, data);
+  auto reqCtx = (RedisRequestContext*) pdata;
+  auto bareReply = (redisReply*) reply;
+  clientPtr->handleCommandResponse(reqCtx, RedisDynamicResponse {bareReply});
 }
 
 void RedisClient::handleConnected(int status) {
@@ -91,13 +116,20 @@ void RedisClient::handleConnected(int status) {
   connectPromise_.setValue(folly::Try<decltype(selfPtr)> {selfPtr});
 }
 
-void RedisClient::handleCommand(RedisRequestContext *ctx, void *data) {
-  ctx->setValue(RedisResponse{});
+void RedisClient::handleCommandResponse(RedisRequestContext *ctx, RedisDynamicResponse &&response) {
+  ctx->setValue(std::forward<RedisDynamicResponse>(response));
 }
 
 void RedisClient::handleDisconnected(int status) {
   CHECK(status == REDIS_OK);
   disconnectPromise_.setValue(folly::Try<folly::Unit> {folly::Unit {}});
+}
+
+RedisClient::~RedisClient() {
+  if (redisContext_) {
+    delete redisContext_;
+    redisContext_ = nullptr;
+  }
 }
 
 namespace detail {

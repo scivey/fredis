@@ -12,6 +12,7 @@ X(RedisError, FredisError);
 X(RedisIOError, RedisError);
 X(RedisProtocolError, RedisError);
 X(RedisEOFError, RedisError);
+X(RedisTypeError, RedisError);
 
 #undef X
 
