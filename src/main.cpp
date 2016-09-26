@@ -4,92 +4,43 @@
 #include <folly/Baton.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/futures/Try.h>
+#include <folly/FBString.h>
+#include <folly/ExceptionWrapper.h>
+
 #include <glog/logging.h>
 
 #include "fredis/folly_util/EBThread.h"
-#include "fredis/redis/RedisClient.h"
+#include "fredis/macros.h"
+#include "fredis/FredisError.h"
+#include "fredis/memcached/MemcachedSyncClient.h"
+#include "fredis/memcached/MemcachedConfig.h"
+#include <libmemcached-1.0/memcached.h>
 
 using fredis::folly_util::EBThread;
-using namespace fredis::redis;
+using namespace fredis::memcached;
 using std::shared_ptr;
 using std::thread;
 using FBat = folly::Baton<std::atomic>;
-
-// int main() {
-//   google::InstallFailureSignalHandler();
-//   LOG(INFO) << "start";
-//   auto ebt = EBThread::createShared();
-//   ebt->start();
-//   FBat baton;
-//   std::shared_ptr<RedisClient> savedRef {nullptr};
-//   ebt->runInEventBaseThread(
-//     [ebt, &baton, &savedRef]
-//     () {
-//       auto clientPtr = RedisClient::createShared(ebt->getBase(), "127.0.0.1", 6379);
-//       savedRef = clientPtr;
-//       clientPtr->connect()
-//         .then(
-//           [&baton, clientPtr]
-//           (folly::Try<shared_ptr<RedisClient>> clientOpt) {
-//             LOG(INFO) << "connected... has val? : " << clientOpt.hasValue();
-//             shared_ptr<RedisClient> client = clientOpt.value();
-//             client->set("foo", "123456789")
-//               .then([&baton, clientPtr](folly::Try<RedisDynamicResponse> response) {
-//                 LOG(INFO) << "finished setting.";
-//                 LOG(INFO) << "result : ...";
-//                 if (!response.hasValue()) {
-//                   LOG (INFO) << "exception! : " << response.exception().what();
-//                 } else {
-//                   LOG(INFO) << response.value().pprint();
-//                 }
-//                 baton.post();
-//               });
-//           }
-//         );
-//     }
-//   );
-//   baton.wait();
-//   ebt->stop();
-//   ebt->join();
-//   LOG(INFO) << "end";
-// }
+using folly::fbstring;
 
 
 int main() {
   google::InstallFailureSignalHandler();
   LOG(INFO) << "start";
-  auto ebt = EBThread::createShared();
-  ebt->start();
-  FBat baton;
-  std::shared_ptr<RedisClient> savedRef {nullptr};
-  ebt->runInEventBaseThread(
-    [ebt, &baton, &savedRef]
-    () {
-      auto clientPtr = RedisClient::createShared(ebt->getBase(), "127.0.0.1", 6379);
-      savedRef = clientPtr;
-      clientPtr->connect()
-        .then(
-          [&baton, clientPtr]
-          (folly::Try<shared_ptr<RedisClient>> clientOpt) {
-            LOG(INFO) << "connected... has val? : " << clientOpt.hasValue();
-            shared_ptr<RedisClient> client = clientOpt.value();
-            client->set("foo", "123456789")
-              .then([&baton, clientPtr](folly::Try<RedisDynamicResponse> response) {
-                LOG(INFO) << "finished setting.";
-                LOG(INFO) << "result : ...";
-                if (!response.hasValue()) {
-                  LOG (INFO) << "exception! : " << response.exception().what();
-                } else {
-                  LOG(INFO) << response.value().pprint();
-                }
-                baton.post();
-              });
-          }
-        );
-    }
-  );
-  baton.wait();
-  ebt->stop();
-  ebt->join();
+  MemcachedConfig config {
+    folly::SocketAddress("127.0.0.1", 11211)
+  };
+  MemcachedSyncClient client(std::move(config));
+  client.connectExcept();
+  CHECK(client.isConnected());
+  auto result = client.get("foo");
+  result.throwIfFailed();
+  auto keyVal = result.value();
+  if (!keyVal.hasValue()) {
+    LOG(INFO) << "key was empty!";
+  } else {
+    fbstring kv = keyVal.value();
+    LOG(INFO) << "result: '" << kv << "'";
+  }
   LOG(INFO) << "end";
 }

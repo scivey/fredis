@@ -22,6 +22,7 @@ link_directories(
 set(COMMON_LIBS
     folly
     hiredis
+    memcached
     event
     glog
     pthread
@@ -32,6 +33,8 @@ set(SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src)
 FILE(GLOB FREDIS_CORE_SRC
     ${SRC_ROOT}/fredis/redis/**/*.cpp
     ${SRC_ROOT}/fredis/redis/*.cpp
+    ${SRC_ROOT}/fredis/memcached/*.cpp
+    ${SRC_ROOT}/fredis/memcached/**/*.cpp
 )
 
 add_library(fredis
