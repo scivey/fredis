@@ -63,6 +63,25 @@ struct TestContext {
   }
 };
 
+#define EXPECT_INT_RESPONSE(responseOpt, n) \
+  do { \
+    EXPECT_TRUE(responseOpt.value().isType(ResponseType::INTEGER)); \
+    EXPECT_EQ(n, responseOpt.value().getInt().value()); \
+  } while (0)
+
+#define EXPECT_STRING_RESPONSE(responseOpt, aStr) \
+  do { \
+    EXPECT_TRUE(responseOpt.value().isType(ResponseType::STRING)); \
+    EXPECT_EQ(std::string {aStr}, responseOpt.value().getString().value()); \
+  } while (0)
+
+
+#define EXPECT_STATUS(responseOpt) \
+  do { \
+    EXPECT_TRUE(responseOpt.value().isType(ResponseType::STATUS)); \
+  } while (0);
+
+
 using response_t = RedisDynamicResponse;
 using try_response_t = folly::Try<response_t>;
 
@@ -101,11 +120,6 @@ TEST(TestRedisIntegration, TestSmoke1) {
 }
 
 
-#define EXPECT_INT_RESPONSE(responseOpt, n) \
-  do { \
-    EXPECT_TRUE(responseOpt.value().isType(ResponseType::INTEGER)); \
-    EXPECT_EQ(n, responseOpt.value().getInt().value()); \
-  } while (0)
 
 
 TEST(TestRedisIntegration, TestIncrDecr) {
@@ -144,18 +158,6 @@ TEST(TestRedisIntegration, TestIncrDecr) {
   EXPECT_EQ(91, someTag.load());
 }
 
-
-#define EXPECT_STRING_RESPONSE(responseOpt, aStr) \
-  do { \
-    EXPECT_TRUE(responseOpt.value().isType(ResponseType::STRING)); \
-    EXPECT_EQ(std::string {aStr}, responseOpt.value().getString().value()); \
-  } while (0)
-
-
-#define EXPECT_STATUS(responseOpt) \
-  do { \
-    EXPECT_TRUE(responseOpt.value().isType(ResponseType::STATUS)); \
-  } while (0);
 
 
 TEST(TestRedisIntegration, TestMSet1) {
