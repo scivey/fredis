@@ -198,6 +198,26 @@ RedisClient::response_future_t RedisClient::strlen(arg_str_ref key) {
   return command1("STRLEN %s", key);
 }
 
+using subscription_try_t = RedisClient::subscription_try_t;
+using subscription_handler_ptr_t = RedisClient::subscription_handler_ptr_t;
+
+subscription_try_t RedisClient::subscribe(subscription_handler_ptr_t handler,
+    arg_str_ref channel) {
+  void *userData = nullptr;
+  auto subscription = RedisSubscription::createShared(
+    shared_from_this(),
+    std::forward<subscription_handler_ptr_t>(handler)
+  );
+  currentSubscription_ = subscription;
+  redisAsyncCommand(
+    redisContext_,
+    &RedisClient::hiredisSubscriptionCallback,
+    userData,
+    "SUBSCRIBE %s", channel.c_str()
+  );
+  return subscription_try_t { subscription };
+}
+
 void RedisClient::hiredisConnectCallback(const redisAsyncContext *ac, int status) {
   auto clientPtr = detail::getClientFromContext(ac);
   clientPtr->handleConnected(status);
@@ -215,6 +235,12 @@ void RedisClient::hiredisCommandCallback(redisAsyncContext *ac, void *reply, voi
   clientPtr->handleCommandResponse(reqCtx, RedisDynamicResponse {bareReply});
 }
 
+void RedisClient::hiredisSubscriptionCallback(redisAsyncContext *ac, void *reply, void*) {
+  auto clientPtr = detail::getClientFromContext(ac);
+  auto bareReply = (redisReply*) reply;
+  clientPtr->handleSubscriptionEvent(RedisDynamicResponse {bareReply});
+}
+
 void RedisClient::handleConnected(int status) {
   CHECK(status == REDIS_OK);
   auto selfPtr = shared_from_this();
@@ -228,6 +254,13 @@ void RedisClient::handleCommandResponse(RedisRequestContext *ctx, RedisDynamicRe
 void RedisClient::handleDisconnected(int status) {
   CHECK(status == REDIS_OK);
   disconnectPromise_.setValue(folly::Try<folly::Unit> {folly::Unit {}});
+}
+
+void RedisClient::handleSubscriptionEvent(RedisDynamicResponse&& response) {
+  auto subscriptionPtr = currentSubscription_.lock();
+  if (subscriptionPtr) {
+    subscriptionPtr->dispatchMessage(std::move(response));
+  }
 }
 
 RedisClient::~RedisClient() {

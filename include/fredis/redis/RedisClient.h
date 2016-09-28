@@ -10,6 +10,7 @@
 #include <folly/futures/Try.h>
 #include <folly/FBString.h>
 #include "fredis/redis/RedisRequestContext.h"
+#include "fredis/redis/RedisSubscription.h"
 
 struct redisAsyncContext;
 
@@ -40,12 +41,16 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   using redis_signed_t = int64_t;
   using arg_str_list = folly::fbvector<arg_str_t>;
   using mset_list = folly::fbvector<std::pair<arg_str_t, arg_str_t>>;
+  using subscription_t = RedisSubscription;
+  using subscription_try_t = folly::Try<std::shared_ptr<subscription_t>>;
+  using subscription_handler_ptr_t = subscription_t::handler_ptr_t;
 
  protected:
   folly::EventBase *base_ {nullptr};
   folly::fbstring host_;
   int port_ {0};
   struct redisAsyncContext *redisContext_ {nullptr};
+  std::weak_ptr<subscription_t> currentSubscription_;
   connect_promise_t connectPromise_;
   disconnect_promise_t disconnectPromise_;
 
@@ -105,7 +110,6 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
 
   using mget_init_list = std::initializer_list<arg_str_t>;
   response_future_t mget(mget_init_list&& mgetList);
-
   response_future_t exists(arg_str_ref);
   response_future_t del(arg_str_ref);
   response_future_t expire(arg_str_ref, redis_signed_t);
@@ -123,11 +127,15 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   response_future_t incrby(arg_str_ref key, redis_signed_t);
 
   response_future_t llen(arg_str_ref key);
+
+  subscription_try_t subscribe(subscription_handler_ptr_t, arg_str_ref);
+
  protected:
   // event handler methods called from the static handlers (because C)
   void handleConnected(int status);
   void handleCommandResponse(RedisRequestContext *ctx, response_t&& data);
   void handleDisconnected(int status);
+  void handleSubscriptionEvent(response_t&& data);
 
  public:
   // these are public because hiredis needs access to them.
@@ -135,6 +143,7 @@ class RedisClient: public std::enable_shared_from_this<RedisClient> {
   static void hiredisConnectCallback(const redisAsyncContext*, int status);
   static void hiredisCommandCallback(redisAsyncContext*, void *reply, void *pdata);
   static void hiredisDisconnectCallback(const redisAsyncContext*, int status);
+  static void hiredisSubscriptionCallback(redisAsyncContext*, void *reply, void *pdata);
   ~RedisClient();
 };
 

@@ -35,6 +35,8 @@ FILE(GLOB FREDIS_CORE_SRC
     ${SRC_ROOT}/fredis/redis/*.cpp
     ${SRC_ROOT}/fredis/memcached/*.cpp
     ${SRC_ROOT}/fredis/memcached/**/*.cpp
+    ${SRC_ROOT}/fredis/FredisError.cpp
+
 )
 
 add_library(fredis

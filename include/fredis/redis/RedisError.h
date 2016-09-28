@@ -13,6 +13,8 @@ X(RedisIOError, RedisError);
 X(RedisProtocolError, RedisError);
 X(RedisEOFError, RedisError);
 X(RedisTypeError, RedisError);
+X(AlreadySubscribedError, RedisError);
+X(SubscriptionError, RedisError);
 
 #undef X
 

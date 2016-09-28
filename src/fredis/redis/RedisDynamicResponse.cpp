@@ -7,15 +7,40 @@ using namespace std;
 using folly::Try;
 using folly::StringPiece;
 using folly::make_exception_wrapper;
-
 namespace fredis { namespace redis {
+
+using ResponseType = RedisDynamicResponse::ResponseType;
 
 RedisDynamicResponse::RedisDynamicResponse(redisReply *hiredisRep)
   : hiredisReply_(hiredisRep) {}
 
-bool RedisDynamicResponse::isType(RedisDynamicResponse::ResponseType resType) const {
+RedisDynamicResponse::RedisDynamicResponse(const RedisDynamicResponse& other)
+  : hiredisReply_(other.hiredisReply_) {}
+
+RedisDynamicResponse& RedisDynamicResponse::operator=(
+    const RedisDynamicResponse& other) {
+  hiredisReply_ = other.hiredisReply_;
+  return *this;
+}
+
+Try<ResponseType> RedisDynamicResponse::getType() const {
   DCHECK(!!hiredisReply_);
-  auto hiType = detail::responseTypeOfInt(hiredisReply_->type);
+  return detail::responseTypeOfInt(hiredisReply_->type);
+}
+
+Try<const char*> RedisDynamicResponse::getTypeString() const {
+  auto resType = getType();
+  if (resType.hasValue()) {
+    return Try<const char*> { detail::stringOfResponseType(resType.value()) };
+  }
+  std::string msg = resType.exception().what().toStdString();
+  return Try<const char*> {
+    make_exception_wrapper<RedisProtocolError>(msg)
+  };
+}
+
+bool RedisDynamicResponse::isType(RedisDynamicResponse::ResponseType resType) const {
+  auto hiType = getType();
   if (!hiType.hasValue()) {
     return false;
   }
@@ -103,6 +128,7 @@ void RedisDynamicResponse::pprintTo(std::ostream &oss) {
     oss << "{ UKNOWN_TYPE [" << hiredisReply_->type << "] }";
   }
 }
+
 
 folly::fbstring RedisDynamicResponse::pprint() {
   std::ostringstream oss;

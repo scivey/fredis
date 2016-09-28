@@ -23,7 +23,11 @@ class RedisDynamicResponse {
   folly::StringPiece toStringPieceUnchecked();
  public:
   RedisDynamicResponse(redisReply *redisRep);
+  RedisDynamicResponse(const RedisDynamicResponse &other);
+  RedisDynamicResponse& operator=(const RedisDynamicResponse &other);
   bool isType(ResponseType resType) const;
+  folly::Try<const char*> getTypeString() const;
+  folly::Try<ResponseType> getType() const;
   bool isNil() const;
   try_string_t getString();
   try_string_t getStatusString();
